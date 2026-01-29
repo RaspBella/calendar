@@ -4,6 +4,9 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::BufWriter;
+use chrono::{Utc, DateTime, Datelike, NaiveDate, Duration, Months};
+use regex::Regex;
+use std::ops::Range;
 
 type Name = String;
 type CompID = String;
@@ -17,6 +20,64 @@ enum Event {
     Birthday(Name),
     Comp(CompID),
     Transit(Transit)
+}
+
+#[derive(Debug)]
+enum DateStep {
+    Days(i64),
+    Months(u32),
+    Years(u32)
+}
+
+#[derive(Debug)]
+struct DateIter {
+    start: NaiveDate,
+    current: NaiveDate,
+    end: NaiveDate,
+    step: DateStep,
+    finished: bool
+}
+
+impl Iterator for DateIter {
+    type Item = NaiveDate;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished || self.current > self.end {
+            return None;
+        }
+
+        let out = self.current;
+
+        match self.step {
+            DateStep::Days(0) => self.finished = true,
+            DateStep::Days(d) => {
+                let next = self.current.checked_add_signed(Duration::days(d));
+
+                match next {
+                    Some(d) => self.current = d,
+                    None => self.finished = true
+                }
+            },
+            DateStep::Months(m) => {
+                let next = self.current.checked_add_months(Months::new(m));
+
+                match next {
+                    Some(d) => self.current = d,
+                    None => self.finished = true
+                }
+            },
+            DateStep::Years(y) => {
+                let next = self.current.checked_add_months(Months::new(12 * y));
+
+                match next {
+                    Some(d) => self.current = d,
+                    None => self.finished = true
+                }
+            }
+        };
+
+        Some(out)
+    }
 }
 
 fn read_events(path: &str) -> Result<Calendar, Box<dyn Error>> {
@@ -66,10 +127,88 @@ where
     Ok(())
 }
 
+fn parse_date_range(date_range: &DateRange, now: DateTime<Utc>) -> Result<DateIter, Box<dyn Error>> {
+    let re = Regex::new(
+        r"^(?P<y>\d{4})(?:\+(?P<yo>\d*))?-(?P<m>\d{2})(?:\+(?P<mo>\d*))?-(?P<d>\d{2})(?:\+(?P<do>\d*))?$"
+    )?;
+
+    let caps = re
+        .captures(date_range)
+        .ok_or("invalid date range")?;
+
+    let start = NaiveDate::from_ymd_opt(
+        caps["y"].parse()?,
+        caps["m"].parse()?,
+        caps["d"].parse()?
+    ).unwrap();
+
+    let years_offset: u32 = caps.name("yo")
+        .map(|m| if m.as_str().is_empty() {
+            let diff = now.year() - start.year();
+
+            if diff < 0 { 0 } else { diff as u32 }
+        } else {
+            m.as_str().parse::<u32>().unwrap()
+        })
+        .unwrap_or(0);
+
+    let months_offset: u32 = caps.name("mo")
+        .map(|m| if m.as_str().is_empty() {
+            let diff = now.month() as i32 - start.month() as i32;
+
+            if diff < 0 { 0 } else { diff as u32 }
+        } else {
+            m.as_str().parse::<u32>().unwrap()
+        })
+        .unwrap_or(0);
+
+    let days_offset: i64 = caps.name("do")
+        .map(|m| if m.as_str().is_empty() {
+            let diff = now.day() as i64 - start.day() as i64;
+
+            if diff < 0 { 0 } else { diff }
+        } else {
+            m.as_str().parse::<i64>().unwrap()
+        })
+        .unwrap_or(0);
+
+    let mut end = start;
+
+    if years_offset > 0 {
+        end = end.checked_add_months(Months::new(12 * years_offset)).ok_or("invalid end date(y)")?;
+    }
+    if months_offset > 0 {
+        end = end.checked_add_months(Months::new(years_offset)).ok_or("invalid end date(m)")?;
+    }
+    if days_offset > 0 {
+        end = end.checked_add_signed(Duration::days(days_offset)).ok_or("invalid end date(d)")?;
+    }
+
+    let step = if days_offset > 0 {
+        DateStep::Days(1)
+    } else if months_offset > 0 {
+        DateStep::Months(1)
+    } else if years_offset > 0 {
+        DateStep::Years(1)
+    } else {
+        DateStep::Days(0)
+    };
+
+    Ok(DateIter { start: start, current: start, end: end, step: step, finished: false })
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let events: Calendar = read_events("docs/events.json")?;
 
-    println!("{:#?}", events);
+    let now: DateTime<Utc> = Utc::now();
+
+    for (date, events) in &events {
+        let mut range = parse_date_range(&date, now)?;
+
+        for virtual_date in &mut range {
+            println!("{}, {}: {:#?}", date, virtual_date, events);
+        }
+    }
 
     write_events(&events, "docs/events.json")?;
 
