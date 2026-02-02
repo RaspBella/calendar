@@ -1,12 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::BufWriter;
+use std::fs::{File, create_dir_all};
+use std::io::{BufReader, BufWriter, Write};
 use chrono::{Utc, DateTime, Datelike, NaiveDate, Duration, Months};
 use regex::Regex;
-use std::ops::Range;
 
 type Name = String;
 type CompID = String;
@@ -31,7 +29,6 @@ enum DateStep {
 
 #[derive(Debug)]
 struct DateIter {
-    start: NaiveDate,
     current: NaiveDate,
     end: NaiveDate,
     step: DateStep,
@@ -194,25 +191,77 @@ fn parse_date_range(date_range: &DateRange, now: DateTime<Utc>) -> Result<DateIt
         DateStep::Days(0)
     };
 
-    Ok(DateIter { start: start, current: start, end: end, step: step, finished: false })
+    Ok(DateIter { current: start, end: end, step: step, finished: false })
+}
+
+fn format_birthday(name: &String, age: i32) -> String {
+    match age {
+        0 => format!("<h1>{name} has been born</h1>"),
+        11..13 => format!("<h1>Happy {age}th Birthday {name}</h1>"),
+        _ => match age % 10 {
+            1 => format!("<h1>Happy {age}st Birthday {name}</h1>"),
+            2 => format!("<h1>Happy {age}nd Birthday {name}</h1>"),
+            3 => format!("<h1>Happy {age}rd Birthday {name}</h1>"),
+            _ => format!("<h1>Happy {age}th Birthday {name}</h1>")
+        }
+    }
+}
+
+fn format_comp(id: &String) -> String {
+    format!("<h1><a href=\"https://www.worldcubeassociation.org/competitions/{}\">{0}</a></h1>", id)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let events: Calendar = read_events("docs/events.json")?;
+    let calendar: Calendar = read_events("docs/events.json")?;
 
     let now: DateTime<Utc> = Utc::now();
 
-    for (date, events) in &events {
+    for (date, events) in &calendar {
         let mut range = parse_date_range(&date, now)?;
+        let start = range.current;
 
         for virtual_date in &mut range {
-            println!("{}, {}: {:#?}", date, virtual_date, events);
+            let y = format!("{:04}", virtual_date.year());
+            let m = format!("{:02}", virtual_date.month());
+            let d = format!("{:02}", virtual_date.day());
+
+            let ymd = format!("{y}/{m}/{d}");
+
+            create_dir_all(
+                format!("docs/{ymd}")
+            )?;
+
+            let divs = events
+                .iter()
+                .map(|e|
+                    match e {
+                        Event::Birthday(name) => format_birthday(name, virtual_date.year() - start.year()),
+                        Event::Comp(id) => format_comp(id),
+                        Event::Transit(t) => format!("<h1>Transit</h1>")
+                    }
+                )
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let index = format!(
+                include_str!("index.html"),
+                ymd,
+                divs
+            );
+
+            let file = File::create(
+                format!("docs/{ymd}/index.html")
+            )?;
+
+            let mut writer = BufWriter::new(file);
+
+            write!(writer, "{}", index)?;
         }
     }
 
-    write_events(&events, "docs/events.json")?;
+    write_events(&calendar, "docs/events.json")?;
 
-    write_filtered(&events, "docs/birthdays.json", |e| {
+    write_filtered(&calendar, "docs/birthdays.json", |e| {
         if let Event::Birthday(name) = e {
             Some(name)
         } else {
@@ -220,7 +269,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     })?;
 
-    write_filtered(&events, "docs/comps.json", |e| {
+    write_filtered(&calendar, "docs/comps.json", |e| {
         if let Event::Comp(id) = e {
             Some(id)
         } else {
@@ -228,7 +277,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     })?;
 
-    write_filtered(&events, "docs/trans.json", |e| {
+    write_filtered(&calendar, "docs/trans.json", |e| {
         if let Event::Transit(transit) = e {
             Some(transit)
         } else {
