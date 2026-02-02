@@ -216,6 +216,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let now: DateTime<Utc> = Utc::now();
 
+    let mut index = String::new();
+
     for (date, events) in &calendar {
         let mut range = parse_date_range(&date, now)?;
         let start = range.current;
@@ -226,6 +228,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             let d = format!("{:02}", virtual_date.day());
 
             let ymd = format!("{y}/{m}/{d}");
+
+            index.push_str(
+                &format!("<h1><a href=\"{}\">{0}</a></h1>", ymd)
+            );
 
             create_dir_all(
                 format!("docs/{ymd}")
@@ -241,11 +247,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 )
                 .collect::<Vec<_>>()
-                .join("\n");
+                .join("");
 
             let index = format!(
                 include_str!("index.html"),
-                ymd,
+                format!("{ymd} - calendar - RaspBella"),
                 divs
             );
 
@@ -258,6 +264,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             write!(writer, "{}", index)?;
         }
     }
+
+    let index = format!(
+        include_str!("index.html"),
+        format!("calendar - RaspBella"),
+        index
+    );
+
+    let file = File::create("docs/index.html")?;
+
+    let mut writer = BufWriter::new(file);
+
+    write!(writer, "{}", index)?;
 
     write_events(&calendar, "docs/events.json")?;
 
