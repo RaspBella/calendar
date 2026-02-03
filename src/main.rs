@@ -5,10 +5,25 @@ use std::fs::{File, create_dir_all};
 use std::io::{BufReader, BufWriter, Write};
 use chrono::{Utc, DateTime, Datelike, NaiveDate, Duration, Months};
 use regex::Regex;
+use std::any::TypeId;
 
 type Name = String;
 type CompID = String;
-type Transit = ();
+
+type Place = String;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Transit {
+    Walk { from: Place, to: Place },
+    Bus { from: Place, to: Place, info: String },
+    Metro { from: Place, to: Place, info: String },
+    Train { from: Place, to: Place, info: String },
+    Plane { from: Place, to: Place }
+}
+
+type Transits = Vec<Transit>;
+
 type DateRange = String;
 type Calendar = BTreeMap<DateRange, Vec<Event>>;
 
@@ -17,7 +32,7 @@ type Calendar = BTreeMap<DateRange, Vec<Event>>;
 enum Event {
     Birthday(Name),
     Comp(CompID),
-    Transit(Transit)
+    Transits(Transits)
 }
 
 #[derive(Debug)]
@@ -99,27 +114,31 @@ fn write_filtered<T, F>(
     mut f: F
 ) -> Result<(), Box<dyn Error>>
 where
-    T: Serialize,
+    T: Serialize + 'static,
     F: FnMut(Event) -> Option<T>
 {
     let file = File::create(path)?;
 
     let writer = BufWriter::new(file);
 
-    let out: BTreeMap<DateRange, Vec<T>> = data
-        .iter()
-        .map(|(date, events)| {
-            let values = events
-                .iter()
-                .cloned()
-                .filter_map(&mut f)
-                .collect::<Vec<_>>();
-            (date.clone(), values)
-        })
-        .filter(|(_, v)| !v.is_empty())
-        .collect();
+    if TypeId::of::<T>() == TypeId::of::<Transits>() {
+        todo!("Handle Transits");
+    } else {
+        let out: BTreeMap<DateRange, Vec<T>> = data
+            .iter()
+            .map(|(date, events)| {
+                let values = events
+                    .iter()
+                    .cloned()
+                    .filter_map(&mut f)
+                    .collect::<Vec<_>>();
+                (date.clone(), values)
+            })
+            .filter(|(_, v)| !v.is_empty())
+            .collect();
 
-    serde_json::to_writer(writer, &out)?;
+        serde_json::to_writer(writer, &out)?;
+    }
 
     Ok(())
 }
@@ -207,8 +226,22 @@ fn format_birthday(name: &String, age: i32) -> String {
     }
 }
 
-fn format_comp(id: &String) -> String {
+fn format_comp(id: &CompID) -> String {
     format!("<h1><a href=\"https://www.worldcubeassociation.org/competitions/{}\">{0}</a></h1>", id)
+}
+
+fn format_transit(transit: &Transit) -> String {
+    "bleh :p".to_string()
+}
+
+fn format_transits(transits: &Transits) -> String {
+    let elements = transits
+        .iter()
+        .map(|t| format_transit(&t))
+        .collect::<Vec<_>>()
+        .join("");
+
+    format!("<ol>{}</ol>", elements)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -243,7 +276,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     match e {
                         Event::Birthday(name) => format_birthday(name, virtual_date.year() - start.year()),
                         Event::Comp(id) => format_comp(id),
-                        Event::Transit(t) => format!("<h1>Transit</h1>")
+                        Event::Transits(transits) => format_transits(transits)
                     }
                 )
                 .collect::<Vec<_>>()
@@ -251,7 +284,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let index = format!(
                 include_str!("index.html"),
-                format!("{ymd} - calendar - RaspBella"),
+                format!("{ymd} - calendar"),
                 divs
             );
 
@@ -267,7 +300,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let index = format!(
         include_str!("index.html"),
-        format!("calendar - RaspBella"),
+        format!("calendar"),
         index
     );
 
@@ -296,8 +329,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     })?;
 
     write_filtered(&calendar, "docs/trans.json", |e| {
-        if let Event::Transit(transit) = e {
-            Some(transit)
+        if let Event::Transits(transits) = e {
+            Some(transits)
         } else {
             None
         }
