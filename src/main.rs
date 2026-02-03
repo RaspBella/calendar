@@ -5,7 +5,6 @@ use std::fs::{File, create_dir_all};
 use std::io::{BufReader, BufWriter, Write};
 use chrono::{Utc, DateTime, Datelike, NaiveDate, Duration, Months};
 use regex::Regex;
-use std::any::TypeId;
 
 type Name = String;
 type CompID = String;
@@ -22,8 +21,6 @@ enum Transit {
     Plane { from: Place, to: Place }
 }
 
-type Transits = Vec<Transit>;
-
 type DateRange = String;
 type Calendar = BTreeMap<DateRange, Vec<Event>>;
 
@@ -32,7 +29,7 @@ type Calendar = BTreeMap<DateRange, Vec<Event>>;
 enum Event {
     Birthday(Name),
     Comp(CompID),
-    Transits(Transits)
+    Transit(Transit)
 }
 
 #[derive(Debug)]
@@ -121,24 +118,20 @@ where
 
     let writer = BufWriter::new(file);
 
-    if TypeId::of::<T>() == TypeId::of::<Transits>() {
-        todo!("Handle Transits");
-    } else {
-        let out: BTreeMap<DateRange, Vec<T>> = data
-            .iter()
-            .map(|(date, events)| {
-                let values = events
-                    .iter()
-                    .cloned()
-                    .filter_map(&mut f)
-                    .collect::<Vec<_>>();
-                (date.clone(), values)
-            })
-            .filter(|(_, v)| !v.is_empty())
-            .collect();
+    let out: BTreeMap<DateRange, Vec<T>> = data
+        .iter()
+        .map(|(date, events)| {
+            let values = events
+                .iter()
+                .cloned()
+                .filter_map(&mut f)
+                .collect::<Vec<_>>();
+            (date.clone(), values)
+        })
+    .filter(|(_, v)| !v.is_empty())
+        .collect();
 
-        serde_json::to_writer(writer, &out)?;
-    }
+    serde_json::to_writer(writer, &out)?;
 
     Ok(())
 }
@@ -234,16 +227,6 @@ fn format_transit(transit: &Transit) -> String {
     "bleh :p".to_string()
 }
 
-fn format_transits(transits: &Transits) -> String {
-    let elements = transits
-        .iter()
-        .map(|t| format_transit(&t))
-        .collect::<Vec<_>>()
-        .join("");
-
-    format!("<ol>{}</ol>", elements)
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let calendar: Calendar = read_events("docs/events.json")?;
 
@@ -276,7 +259,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     match e {
                         Event::Birthday(name) => format_birthday(name, virtual_date.year() - start.year()),
                         Event::Comp(id) => format_comp(id),
-                        Event::Transits(transits) => format_transits(transits)
+                        Event::Transit(transit) => format_transit(transit)
                     }
                 )
                 .collect::<Vec<_>>()
@@ -329,8 +312,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     })?;
 
     write_filtered(&calendar, "docs/trans.json", |e| {
-        if let Event::Transits(transits) = e {
-            Some(transits)
+        if let Event::Transit(transit) = e {
+            Some(transit)
         } else {
             None
         }
