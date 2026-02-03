@@ -14,11 +14,11 @@ type Place = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum Transit {
-    Walk { from: Place, to: Place },
+    Walk { from: Place, to: Place, info: String },
     Bus { from: Place, to: Place, info: String },
     Metro { from: Place, to: Place, info: String },
     Train { from: Place, to: Place, info: String },
-    Plane { from: Place, to: Place }
+    Plane { from: Place, to: Place, info: String }
 }
 
 type DateRange = String;
@@ -224,7 +224,13 @@ fn format_comp(id: &CompID) -> String {
 }
 
 fn format_transit(transit: &Transit) -> String {
-    "bleh :p".to_string()
+    match transit {
+        Transit::Walk { from, to, info } => format!("<h1 title=\"{}\">Walking: {} to {}</h1>", info, from, to),
+        Transit::Bus { from, to, info } => format!("<h1 title=\"{}\">Bus: {} to {}</h1>", info, from, to),
+        Transit::Metro { from, to, info } => format!("<h1 title=\"{}\">Metro: {} to {}</h1>", info, from, to),
+        Transit::Train { from, to, info } => format!("<h1 title=\"{}\">Train: {} to {}</h1>", info, from, to),
+        Transit::Plane { from, to, info } => format!("<h1 title=\"{}\">Plane: {} to {}</h1>", info, from, to),
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
