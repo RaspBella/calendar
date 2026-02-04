@@ -2587,7 +2587,7 @@ pub mod crs {
             "YRT" => "Yorton",
             "YSM" => "Ystrad Mynach",
             "YSR" => "Ystrad Rhondda",
-            c => panic!("Unknown CRS code: {}", c)
+            c => panic!("Invalid CRS code: {}", c)
         }
     }
 }
