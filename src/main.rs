@@ -141,7 +141,7 @@ where
 
 fn parse_date_range(date_range: &DateRange, now: DateTime<Utc>) -> Result<DateIter, Box<dyn Error>> {
     let re = Regex::new(
-        r"^(?P<y>\d{4})(?:\+(?P<yo>\d*))?-(?P<m>\d{2})(?:\+(?P<mo>\d*))?-(?P<d>\d{2})(?:\+(?P<do>\d*))?$"
+        r"^(?P<y>\d{4})(?:\+(?P<yo>\d*))?/(?P<m>\d{2})(?:\+(?P<mo>\d*))?/(?P<d>\d{2})(?:\+(?P<do>\d*))?$"
     )?;
 
     let caps = re
