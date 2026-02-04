@@ -6,6 +6,9 @@ use std::io::{BufReader, BufWriter, Write};
 use chrono::{Utc, DateTime, Datelike, NaiveDate, Duration, Months};
 use regex::Regex;
 
+mod c;
+use crate::c::crs::*;
+
 type Name = String;
 type CompID = String;
 
@@ -17,7 +20,7 @@ enum Transit {
     Walk { from: Place, to: Place, info: String },
     Bus { from: Place, to: Place, info: String },
     Metro { from: Place, to: Place, info: String },
-    Train { from: Place, to: Place, info: String },
+    Train { from: CRS, to: CRS, info: String },
     Plane { from: Place, to: Place, info: String }
 }
 
@@ -228,7 +231,7 @@ fn format_transit(transit: &Transit) -> String {
         Transit::Walk { from, to, info } => format!("<h1 title=\"{}\">Walking: {} to {}</h1>", info, from, to),
         Transit::Bus { from, to, info } => format!("<h1 title=\"{}\">Bus: {} to {}</h1>", info, from, to),
         Transit::Metro { from, to, info } => format!("<h1 title=\"{}\">Metro: {} to {}</h1>", info, from, to),
-        Transit::Train { from, to, info } => format!("<h1 title=\"{}\">Train: {} to {}</h1>", info, from, to),
+        Transit::Train { from, to, info } => format!("<h1 title=\"{}\">Train: {} to {}</h1>", info, crs(from), crs(to)),
         Transit::Plane { from, to, info } => format!("<h1 title=\"{}\">Plane: {} to {}</h1>", info, from, to),
     }
 }
