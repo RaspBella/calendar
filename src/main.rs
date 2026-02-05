@@ -301,6 +301,34 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|d| d.month())
             .collect::<BTreeSet<_>>();
 
+        for month in &months {
+            let dates = dates
+                .iter()
+                .filter(|d| d.year() == *year && d.month() == *month)
+                .map(|d| d.day())
+                .collect::<BTreeSet<_>>();
+
+            let dates = dates
+                .iter()
+                .map(|d| format!("<h1><a href=\"{:02}\">{:04}/{:02}/{0:02}</a></h1>", d, year, month))
+                .collect::<Vec<_>>()
+                .join("\n      ");
+
+            let index = format!(
+                include_str!("index.html"),
+                format!("{year:04}/{month:02} - calendar"),
+                dates
+            );
+
+            let file = File::create(
+                format!("docs/{year:04}/{month:02}/index.html")
+            )?;
+
+            let mut writer = BufWriter::new(file);
+
+            write!(writer, "{}", index)?;
+        }
+
         let months = months
             .iter()
             .map(|m| format!("<h1><a href=\"{:02}\">{:04}/{0:02}</a></h1>", m, year))
