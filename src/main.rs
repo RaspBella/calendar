@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap,BTreeSet};
 use std::error::Error;
 use std::fs::{File, create_dir_all};
 use std::io::{BufReader, BufWriter, Write};
@@ -239,23 +239,22 @@ fn format_transit(transit: &Transit) -> String {
 fn main() -> Result<(), Box<dyn Error>> {
     let calendar: Calendar = read_events("docs/events.json")?;
 
-    let now: DateTime<Utc> = Utc::now();
+    let mut dates = BTreeSet::new();
 
-    let mut index = String::new();
+    let now: DateTime<Utc> = Utc::now();
 
     for (date, events) in &calendar {
         let mut range = parse_date_range(&date, now)?;
         let start = range.current;
 
         for virtual_date in &mut range {
-            let y = format!("{:04}", virtual_date.year());
-            let m = format!("{:02}", virtual_date.month());
-            let d = format!("{:02}", virtual_date.day());
+            dates.insert(virtual_date);
 
-            let ymd = format!("{y}/{m}/{d}");
-
-            index.push_str(
-                &format!("<h1><a href=\"{}\">{0}</a></h1>", ymd)
+            let ymd = format!(
+                "{:04}/{:02}/{:02}",
+                virtual_date.year(),
+                virtual_date.month(),
+                virtual_date.day()
             );
 
             create_dir_all(
@@ -290,10 +289,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    let dates = dates
+        .iter()
+        .map(|d|
+            format!(
+                "<h1><a href=\"{:04}/{:02}/{:02}\">{0:04}/{1:02}/{2:02}</a></h1>",
+                d.year(),
+                d.month(),
+                d.day()
+            )
+        )
+        .collect::<Vec<_>>()
+        .join("\n      ");
+
     let index = format!(
         include_str!("index.html"),
         format!("calendar"),
-        index
+        dates
     );
 
     let file = File::create("docs/index.html")?;
