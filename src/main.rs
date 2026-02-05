@@ -212,7 +212,7 @@ fn parse_date_range(date_range: &DateRange, now: DateTime<Utc>) -> Result<DateIt
 fn format_birthday(name: &String, age: i32) -> String {
     match age {
         0 => format!("<h1>{name} has been born</h1>"),
-        11..13 => format!("<h1>Happy {age}th Birthday {name}</h1>"),
+        11..=13 => format!("<h1>Happy {age}th Birthday {name}</h1>"),
         _ => match age % 10 {
             1 => format!("<h1>Happy {age}st Birthday {name}</h1>"),
             2 => format!("<h1>Happy {age}nd Birthday {name}</h1>"),
