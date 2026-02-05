@@ -289,23 +289,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let dates = dates
+    let years = dates
         .iter()
-        .map(|d|
-            format!(
-                "<h1><a href=\"{:04}/{:02}/{:02}\">{0:04}/{1:02}/{2:02}</a></h1>",
-                d.year(),
-                d.month(),
-                d.day()
-            )
-        )
+        .map(|d| d.year())
+        .collect::<BTreeSet<_>>();
+
+    let years = years
+        .iter()
+        .map(|y| format!("<h1><a href=\"{:04}\">{0:04}</a></h1>", y))
         .collect::<Vec<_>>()
         .join("\n      ");
 
     let index = format!(
         include_str!("index.html"),
         format!("calendar"),
-        dates
+        years
     );
 
     let file = File::create("docs/index.html")?;
