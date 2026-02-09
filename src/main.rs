@@ -20,6 +20,7 @@ enum Transit {
     Walk { from: Place, to: Place, info: String },
     Bus { from: Place, to: Place, info: String },
     Metro { from: Place, to: Place, info: String },
+    Tram { from: Place, to: Place, info: String },
     Train { from: CRS, to: CRS, info: String },
     Plane { from: Place, to: Place, info: String }
 }
@@ -210,30 +211,56 @@ fn parse_date_range(date_range: &DateRange, now: DateTime<Utc>) -> Result<DateIt
 }
 
 fn format_birthday(name: &String, age: i32) -> String {
-    match age {
-        0 => format!("<h1>{name} has been born</h1>"),
-        11..=13 => format!("<h1>Happy {age}th Birthday {name}</h1>"),
+    let msg = match age {
+        0 => format!("{name} has been born"),
+        11..=13 => format!("Happy {age}th Birthday {name}"),
         _ => match age % 10 {
-            1 => format!("<h1>Happy {age}st Birthday {name}</h1>"),
-            2 => format!("<h1>Happy {age}nd Birthday {name}</h1>"),
-            3 => format!("<h1>Happy {age}rd Birthday {name}</h1>"),
-            _ => format!("<h1>Happy {age}th Birthday {name}</h1>")
+            1 => format!("Happy {age}st Birthday {name}"),
+            2 => format!("Happy {age}nd Birthday {name}"),
+            3 => format!("Happy {age}rd Birthday {name}"),
+            _ => format!("Happy {age}th Birthday {name}")
         }
-    }
+    };
+
+    format!("<h1>{}</h1>", msg)
+}
+
+fn format_link(href: String, text: &String) -> String {
+    format!(r#"<a href="{}">{}</a>"#, href, text)
 }
 
 fn format_comp(id: &CompID) -> String {
-    format!("<h1><a href=\"https://www.worldcubeassociation.org/competitions/{}\">{0}</a></h1>", id)
+    format!(
+        "<h1>{}</h1>",
+        format_link(
+            format!(
+                r#"https://worldcubeassociation.org/competitions/{}"#,
+                id
+            ),
+            id
+        )
+    )
 }
 
 fn format_transit(transit: &Transit) -> String {
-    match transit {
-        Transit::Walk { from, to, info } => format!("<h1 title=\"{}\">Walking: {} to {}</h1>", info, from, to),
-        Transit::Bus { from, to, info } => format!("<h1 title=\"{}\">Bus: {} to {}</h1>", info, from, to),
-        Transit::Metro { from, to, info } => format!("<h1 title=\"{}\">Metro: {} to {}</h1>", info, from, to),
-        Transit::Train { from, to, info } => format!("<h1 title=\"{}\">Train: {} to {}</h1>", info, crs(from), crs(to)),
-        Transit::Plane { from, to, info } => format!("<h1 title=\"{}\">Plane: {} to {}</h1>", info, from, to),
-    }
+    let (info, case, from, to) = match transit {
+        Transit::Walk { from, to, info } => (info, "Walk", from, to),
+        Transit::Bus { from, to, info } => (info, "Bus", from, to),
+        Transit::Metro { from, to, info } => (info, "Metro", from, to),
+        Transit::Tram { from, to, info } => (info, "Tram", from, to),
+        Transit::Train { from, to, info } => {
+            (info, "Train", &String::from(crs(from)), &String::from(crs(to)))
+        },
+        Transit::Plane { from, to, info } => (info, "Plane", from, to),
+    };
+
+    format!(
+        r#"<h1 title="{}">{}: {} to {}</h1>"#,
+        info,
+        case,
+        from,
+        to
+    )
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
