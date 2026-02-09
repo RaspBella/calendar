@@ -132,7 +132,7 @@ where
                 .collect::<Vec<_>>();
             (date.clone(), values)
         })
-    .filter(|(_, v)| !v.is_empty())
+        .filter(|(_, v)| !v.is_empty())
         .collect();
 
     serde_json::to_writer(writer, &out)?;
