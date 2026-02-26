@@ -22,6 +22,7 @@ enum Transit {
     Metro { from: Place, to: Place, info: String },
     Tram { from: Place, to: Place, info: String },
     Train { from: CRS, to: CRS, info: String },
+    Car { from: Place, to: Place, info: String },
     Plane { from: Place, to: Place, info: String }
 }
 
@@ -251,6 +252,7 @@ fn format_transit(transit: &Transit) -> String {
         Transit::Train { from, to, info } => {
             (info, "Train", &String::from(crs(from)), &String::from(crs(to)))
         },
+        Transit::Car { from, to, info } => (info, "Car", from, to),
         Transit::Plane { from, to, info } => (info, "Plane", from, to),
     };
 
